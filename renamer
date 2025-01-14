@@ -1,0 +1,45 @@
+class NodeRenamer {
+  constructor() {
+    // Region name standardization patterns
+    this.regionPatterns = {
+      'Hong Kong': /Hong\s*Kong|HongKong|HONG\s*KONG|香港|HK|港/gi,
+      'Japan': /Japan|Jp|日本|Tokyo|Osaka|東京|大阪/gi,
+      'Singapore': /Singapore|SG|新加坡|狮城/gi,
+      'Taiwan': /Taiwan|TW|台湾|台灣|新北/gi,
+      'United States': /United\s*States|USA|US|美国|洛杉矶|硅谷|西雅图/gi,
+      'South Korea': /South\s*Korea|Korea|KR|韩国|首尔|Seoul/gi
+      // Add more patterns as needed
+    };
+  }
+
+  cleanName(name) {
+    // Extract main region name only
+    for (const [standardName, pattern] of Object.entries(this.regionPatterns)) {
+      if (pattern.test(name)) {
+        return standardName;
+      }
+    }
+    return null; // No recognized region found
+  }
+
+  process(nodes) {
+    const regionCounts = {};
+    
+    return nodes.map(node => {
+      const cleanedName = this.cleanName(node.name);
+      if (!cleanedName) {
+        return null; // Skip unrecognized nodes
+      }
+      
+      // Update counter for this region
+      regionCounts[cleanedName] = (regionCounts[cleanedName] || 0) + 1;
+      
+      // Add number suffix
+      const number = String(regionCounts[cleanedName]).padStart(2, '0');
+      return {
+        ...node,
+        name: `${cleanedName} ${number}`
+      };
+    }).filter(Boolean); // Remove null entries
+  }
+}

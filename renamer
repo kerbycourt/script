@@ -1,45 +1,103 @@
-class NodeRenamer {
+class NodeMapper {
   constructor() {
-    // Region name standardization patterns
-    this.regionPatterns = {
-      'Hong Kong': /Hong\s*Kong|HongKong|HONG\s*KONG|香港|HK|港/gi,
-      'Japan': /Japan|Jp|日本|Tokyo|Osaka|東京|大阪/gi,
-      'Singapore': /Singapore|SG|新加坡|狮城/gi,
-      'Taiwan': /Taiwan|TW|台湾|台灣|新北/gi,
-      'United States': /United\s*States|USA|US|美国|洛杉矶|硅谷|西雅图/gi,
-      'South Korea': /South\s*Korea|Korea|KR|韩国|首尔|Seoul/gi
-      // Add more patterns as needed
+    // Name format mapping
+    this.nameMap = {
+      cn: "cn",
+      zh: "cn",
+      us: "us",
+      en: "us",
+      quan: "quan",
+      gq: "gq",
+      flag: "gq"
     };
+
+    // Parallel arrays for different naming systems
+    this.FG = ['🇭🇰','🇲🇴','🇹🇼','🇯🇵','🇰🇷','🇸🇬','🇺🇸','🇬🇧'];
+    this.EN = ['HK','MO','TW','JP','KR','SG','US','GB'];
+    this.ZH = ['香港','澳门','台湾','日本','韩国','新加坡','美国','英国'];
+    this.QC = ['Hong Kong','Macao','Taiwan','Japan','Korea','Singapore','United States','United Kingdom'];
   }
 
-  cleanName(name) {
-    // Extract main region name only
-    for (const [standardName, pattern] of Object.entries(this.regionPatterns)) {
-      if (pattern.test(name)) {
-        return standardName;
-      }
+  getList(format) {
+    switch (format) {
+      case 'us': 
+        return this.EN;
+      case 'gq': 
+        return this.FG;
+      case 'quan': 
+        return this.QC;
+      default: 
+        return this.ZH;
     }
-    return null; // No recognized region found
   }
 
-  process(nodes) {
-    const regionCounts = {};
+  buildNameMap(inputFormat, outputFormat) {
+    const Allmap = {};
+    const outList = this.getList(outputFormat || "cn");
+    const inputLists = inputFormat ? 
+      [this.getList(inputFormat)] : 
+      [this.ZH, this.FG, this.QC, this.EN];
+
+    inputLists.forEach(list => {
+      list.forEach((value, index) => {
+        Allmap[value] = outList[index];
+      });
+    });
+
+    return Allmap;
+  }
+
+  process(nodes, options = {}) {
+    const {
+      in: inputFormat,
+      out: outputFormat = "cn"
+    } = options;
+
+    const nameMapping = this.buildNameMap(
+      this.nameMap[inputFormat],
+      this.nameMap[outputFormat]
+    );
+
+    const counts = {};
     
     return nodes.map(node => {
-      const cleanedName = this.cleanName(node.name);
-      if (!cleanedName) {
-        return null; // Skip unrecognized nodes
+      let newName = null;
+      
+      // Find matching name in mapping
+      for (const [key, value] of Object.entries(nameMapping)) {
+        if (node.name.includes(key)) {
+          newName = value;
+          break;
+        }
       }
-      
-      // Update counter for this region
-      regionCounts[cleanedName] = (regionCounts[cleanedName] || 0) + 1;
-      
-      // Add number suffix
-      const number = String(regionCounts[cleanedName]).padStart(2, '0');
+
+      if (!newName) {
+        return null;
+      }
+
+      // Add numbering
+      counts[newName] = (counts[newName] || 0) + 1;
+      newName = `${newName} ${String(counts[newName]).padStart(2, '0')}`;
+
       return {
         ...node,
-        name: `${cleanedName} ${number}`
+        name: newName
       };
-    }).filter(Boolean); // Remove null entries
+    }).filter(Boolean);
   }
 }
+
+// Usage:
+/*
+const mapper = new NodeMapper();
+const nodes = [
+  { name: "日本 IPLC" },
+  { name: "HK 5x" },
+  { name: "SG Premium" }
+];
+
+const result = mapper.process(nodes, {
+  in: "zh",    // Input format (zh, en, gq, quan)
+  out: "cn"    // Output format (cn, us, gq, quan)
+});
+*/

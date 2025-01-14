@@ -1,103 +1,91 @@
-class NodeMapper {
-  constructor() {
-    // Name format mapping
-    this.nameMap = {
-      cn: "cn",
-      zh: "cn",
-      us: "us",
-      en: "us",
-      quan: "quan",
-      gq: "gq",
-      flag: "gq"
-    };
+const inArg = $arguments;
+const nm = inArg.nm || false;
 
-    // Parallel arrays for different naming systems
-    this.FG = ['🇭🇰','🇲🇴','🇹🇼','🇯🇵','🇰🇷','🇸🇬','🇺🇸','🇬🇧'];
-    this.EN = ['HK','MO','TW','JP','KR','SG','US','GB'];
-    this.ZH = ['香港','澳门','台湾','日本','韩国','新加坡','美国','英国'];
-    this.QC = ['Hong Kong','Macao','Taiwan','Japan','Korea','Singapore','United States','United Kingdom'];
-  }
+const nameMap = {
+    cn: "cn",
+    zh: "cn",
+    us: "us",
+    en: "us",
+    quan: "quan",
+    gq: "gq",
+    flag: "gq"
+};
 
-  getList(format) {
-    switch (format) {
-      case 'us': 
-        return this.EN;
-      case 'gq': 
-        return this.FG;
-      case 'quan': 
-        return this.QC;
-      default: 
-        return this.ZH;
+const inname = nameMap[inArg.in] || "",
+    outputName = nameMap[inArg.out] || "";
+
+// Parallel arrays for different naming systems
+const FG = ['🇭🇰','🇲🇴','🇹🇼','🇯🇵','🇰🇷','🇸🇬','🇺🇸','🇬🇧'];
+const EN = ['HK','MO','TW','JP','KR','SG','US','GB'];
+const ZH = ['香港','澳门','台湾','日本','韩国','新加坡','美国','英国'];
+const QC = ['Hong Kong','Macao','Taiwan','Japan','Korea','Singapore','United States','United Kingdom'];
+
+function getList(arg) {
+    switch (arg) {
+        case 'us':
+            return EN;
+        case 'gq':
+            return FG;
+        case 'quan':
+            return QC;
+        default:
+            return ZH;
     }
-  }
-
-  buildNameMap(inputFormat, outputFormat) {
-    const Allmap = {};
-    const outList = this.getList(outputFormat || "cn");
-    const inputLists = inputFormat ? 
-      [this.getList(inputFormat)] : 
-      [this.ZH, this.FG, this.QC, this.EN];
-
-    inputLists.forEach(list => {
-      list.forEach((value, index) => {
-        Allmap[value] = outList[index];
-      });
-    });
-
-    return Allmap;
-  }
-
-  process(nodes, options = {}) {
-    const {
-      in: inputFormat,
-      out: outputFormat = "cn"
-    } = options;
-
-    const nameMapping = this.buildNameMap(
-      this.nameMap[inputFormat],
-      this.nameMap[outputFormat]
-    );
-
-    const counts = {};
-    
-    return nodes.map(node => {
-      let newName = null;
-      
-      // Find matching name in mapping
-      for (const [key, value] of Object.entries(nameMapping)) {
-        if (node.name.includes(key)) {
-          newName = value;
-          break;
-        }
-      }
-
-      if (!newName) {
-        return null;
-      }
-
-      // Add numbering
-      counts[newName] = (counts[newName] || 0) + 1;
-      newName = `${newName} ${String(counts[newName]).padStart(2, '0')}`;
-
-      return {
-        ...node,
-        name: newName
-      };
-    }).filter(Boolean);
-  }
 }
 
-// Usage:
-/*
-const mapper = new NodeMapper();
-const nodes = [
-  { name: "日本 IPLC" },
-  { name: "HK 5x" },
-  { name: "SG Premium" }
-];
+function jxh(e) {
+    const n = e.reduce((e, n) => {
+        const t = e.find((e) => e.name === n.name);
+        if (t) {
+            t.count++;
+            t.items.push({
+                ...n,
+                name: `${n.name} ${t.count.toString().padStart(2, "0")}`
+            });
+        } else {
+            e.push({
+                name: n.name,
+                count: 1,
+                items: [{
+                    ...n,
+                    name: `${n.name} 01`
+                }]
+            });
+        }
+        return e;
+    }, []);
+    
+    const t = n.flatMap((e) => e.items);
+    e.splice(0, e.length, ...t);
+    return e;
+}
 
-const result = mapper.process(nodes, {
-  in: "zh",    // Input format (zh, en, gq, quan)
-  out: "cn"    // Output format (cn, us, gq, quan)
-});
-*/
+function operator(pro) {
+    const Allmap = {};
+    const outList = getList(outputName);
+    let inputList = inname !== "" ? [getList(inname)] : [ZH, FG, QC, EN];
+
+    inputList.forEach((arr) => {
+        arr.forEach((value, valueIndex) => {
+            Allmap[value] = outList[valueIndex];
+        });
+    });
+
+    pro.forEach((e) => {
+        let findKey = false;
+        for (const [key, value] of Object.entries(Allmap)) {
+            if (e.name.includes(key)) {
+                e.name = value;
+                findKey = true;
+                break;
+            }
+        }
+        if (!findKey && !nm) {
+            e.name = null;
+        }
+    });
+
+    pro = pro.filter((e) => e.name !== null);
+    jxh(pro);
+    return pro;
+}
